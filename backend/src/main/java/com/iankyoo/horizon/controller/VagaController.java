@@ -1,5 +1,6 @@
 package com.iankyoo.horizon.controller;
 
+import com.iankyoo.horizon.dto.VagaDetailResponse;
 import com.iankyoo.horizon.dto.VagaRequest;
 import com.iankyoo.horizon.dto.VagaResponse;
 import com.iankyoo.horizon.enums.StatusVaga;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +37,11 @@ public class VagaController {
             @RequestParam(required = false) String plataforma,
             Pageable pageable) {
         return ResponseEntity.ok(vagaService.listVagas(status, plataforma, pageable));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<VagaDetailResponse> findById(@PathVariable Long id) {
+        return ResponseEntity.ok(vagaService.findById(id));
     }
 
 }
