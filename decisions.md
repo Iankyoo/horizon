@@ -135,3 +135,39 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Manter a validação restrita ao que a issue #3 realmente entrega, sem adiantar o endpoint de leitura só para "testar mais bonito".
 
 **Trade-off:** Nenhum — é só uma nota de que a validação ponta a ponta via HTTP completa (criar e depois ler pela API) só fica possível a partir da issue #5.
+
+---
+
+## Issue #4 — `GET /api/v1/vagas` (listagem com filtros)
+
+## 2026-08-01 — Listagem paginada (`Page<VagaResponse>`), não `List`
+
+**Ação:** `GET /api/v1/vagas` recebe `Pageable` (query params `page`/`size`/`sort` padrão do Spring Data) e retorna `Page<VagaResponse>`, em vez de uma lista simples.
+
+**Motivo:** Nem o PRD nem a arquitetura pedem paginação explicitamente, mas é o padrão já usado em todo o `rest-api` (`CategoryController`, `MenuItemController` — ambos `Page<T>` via `Pageable`). Manter o mesmo padrão entre os projetos do portfólio é uma escolha deliberada de consistência, e paginação sai de graça com Spring Data (não é código extra relevante).
+
+**Trade-off:** O corpo da resposta fica mais verboso (metadados de paginação) do que uma lista simples — aceitável dado que é exatamente o formato que o `rest-api` já usa, e o dashboard/frontend (issues futuras) vai precisar lidar com paginação de qualquer forma se a lista de vagas crescer.
+
+## 2026-08-01 — Filtros opcionais via JPQL com `:param IS NULL OR ...`, não Specifications
+
+**Ação:** `VagaRepository.findByFilters` usa uma única `@Query` JPQL com `(:status IS NULL OR v.statusAtual = :status) AND (:plataforma IS NULL OR v.plataforma = :plataforma)`, em vez de `JpaSpecificationExecutor`/Criteria API.
+
+**Motivo:** Só existem dois filtros opcionais (seção 5 da arquitetura não pede mais que isso na v1). Specifications valem a pena quando o número de combinações de filtro cresce; para dois campos, a query JPQL única é mais direta de ler e não introduz uma dependência/padrão novo (Specification) só usado neste um lugar.
+
+**Trade-off:** Se a v2 precisar de mais filtros (ex: por empresa, por intervalo de data), essa query vai ficar longa e provavelmente compensará migrar para Specifications nesse momento — não antecipei isso agora porque seria over-engineering para o escopo atual da v1.
+
+## 2026-08-01 — Segundo conflito de porta descoberto durante a validação: `5433` já estava em uso por outro projeto
+
+**Ação:** Porta do Postgres no `docker-compose.yml` trocada de fixa `5433:5432` para configurável `${DB_PORT:-5544}:5432` (default novo: `5544`). `application-local.yml` e `.env.example` atualizados para acompanhar.
+
+**Motivo:** Ao revalidar o ambiente para testar os filtros desta issue, o `horizon_db` falhou ao subir: a porta `5433` já estava alocada por um container de outro projeto (`bank-analyzer-db_test-1`, rodando havia ~20 min, sem relação com o Horizon). Mesma classe de problema já visto com a porta `8080` na issue #1 (processo local do `codearena`) — múltiplos projetos deste ambiente competem pelas mesmas portas padrão de Postgres (5432-5434 já estavam todas em uso por outros repos: `bank-analyzer`, `rest-api`, etc.).
+
+**Trade-off:** Nenhum custo real — só documentando para não repetir o diagnóstico caso a porta `5544` também colida no futuro (nesse caso, o padrão já está estabelecido: tornar configurável via `.env`, nunca mexer no container do outro projeto).
+
+## 2026-08-01 — Validação de filtro por `status` cobre só `APLICADO` (único status possível até a issue #6)
+
+**Ação:** O teste manual do filtro por `status` usou `APLICADO` (retorna as 3 vagas criadas) e `REJEITADO` (retorna vazio, confirmando que o filtro realmente restringe) — não foi possível testar uma vaga em outro status real porque `PATCH /vagas/{id}/status` (issue #6) ainda não existe.
+
+**Motivo:** Mesma lógica da nota de validação da issue #3 — não adiantar escopo de outra issue só para ter um teste "mais completo" agora.
+
+**Trade-off:** A cobertura do filtro por status com dado real de múltiplos status só fica completa depois da issue #6 — o comportamento da query em si (WHERE condicional) já está validado por construção (mesma cláusula usada para os dois filtros, e o filtro por `plataforma` com dados reais heterogêneos já prova que a lógica `:param IS NULL OR ...` funciona).
