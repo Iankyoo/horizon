@@ -71,3 +71,39 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** O `rest-api` (repositório privado) commitava o secret JWT direto no `application.properties` — inaceitável aqui porque o Horizon é público desde o primeiro commit.
 
 **Trade-off:** Mais um passo de setup para quem for rodar o projeto localmente (copiar `.env.example` para `.env`) em troca de não vazar segredo nenhum no histórico do git.
+
+## 2026-08-01 — `spring.profiles.active: local` como default em `application.yml`
+
+**Ação:** Adicionado `spring.profiles.active: ${SPRING_PROFILES_ACTIVE:local}` no `application.yml` base, em vez de deixar o profile totalmente implícito.
+
+**Motivo:** Ao validar o setup da issue #1 rodando `./mvnw spring-boot:run` sem a variável `SPRING_PROFILES_ACTIVE` exportada, a aplicação caiu no profile `default` do Spring (sem nenhum datasource configurado) e falhou ao subir — o README já prometia "rodar local = perfil `local`" sem isso estar garantido em código.
+
+**Trade-off:** Nenhum relevante — o `docker-compose.yml` continua sobrescrevendo explicitamente para `docker` via variável de ambiente, então o comportamento em container não muda; só corrige o caminho "rodando local sem Docker".
+
+---
+
+## Issue #2 — Modelagem de entidades
+
+## 2026-08-01 — `statusAtual` não recebe default na Entity; inicialização fica para o Service (issue #3)
+
+**Ação:** O campo `Vaga.statusAtual` é `@Column(nullable = false)` mas sem valor default no Java — não é setado automaticamente para `APLICADO` na construção do objeto.
+
+**Motivo:** Definir o status inicial é regra de negócio do fluxo de criação (`POST /api/v1/vagas`, escopo da issue #3), não da modelagem estrutural. Fixar o default na Entity misturaria as duas responsabilidades e criaria um comportamento "escondido" fora do Service, que é onde a arquitetura (seção 3) diz que a regra de negócio deve morar.
+
+**Trade-off:** Um `new Vaga()` sem passar `statusAtual` explicitamente vai falhar na constraint `NOT NULL` do banco — aceitável porque força quem cria uma vaga (o Service, na próxima issue) a decidir o status conscientemente, em vez de confiar num default implícito.
+
+## 2026-08-01 — `StatusHistorico` não tem coleção `@OneToMany` de volta para `Vaga`
+
+**Ação:** O relacionamento é modelado só como `@ManyToOne` em `StatusHistorico → Vaga` (unidirecional). `Vaga` não tem uma lista `List<StatusHistorico>`.
+
+**Motivo:** `GET /vagas/{id}` (issue #5) precisa retornar o histórico completo, mas isso é responsabilidade de query no Service/Repository (`findByVagaIdOrderByDataMudancaAsc`), não de navegação de grafo de entidade. Evita o risco clássico de N+1/coleção lazy carregada sem controle dentro da Entity.
+
+**Trade-off:** O Service da issue #5 precisa fazer uma query explícita em vez de simplesmente chamar `vaga.getHistorico()` — um pouco mais verboso, mas mais previsível em termos de performance e mais fácil de testar isoladamente.
+
+## 2026-08-01 — Validação da modelagem via schema real, não via teste automatizado
+
+**Ação:** A modelagem foi validada subindo o Postgres do `docker-compose` e rodando a aplicação localmente (`ddl-auto=update`), inspecionando as tabelas geradas via `psql` (`\d vaga`, `\d status_historico`) — confirmando colunas, constraints `NOT NULL`, `CHECK` dos enums e a FK `status_historico.vaga_id → vaga.id`. Nenhum teste automatizado foi adicionado nesta issue.
+
+**Motivo:** O escopo da issue #2 é estritamente "entidades + enum + DDL" — repositórios, services e testes entram nas issues seguintes (#3 em diante). Adicionar testes agora seria antecipar trabalho de fora do escopo definido, o que o PRD (seção 9) já identifica como o principal risco do projeto (escopo inflar antes do MVP fechar).
+
+**Trade-off:** Sem teste automatizado, uma regressão futura na modelagem só seria pega manualmente ou pelas issues seguintes que dependem dela — aceitável porque o schema já foi verificado byte a byte contra o banco real nesta validação.
