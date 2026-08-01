@@ -8,6 +8,8 @@ import com.iankyoo.horizon.model.Vaga;
 import com.iankyoo.horizon.repository.StatusHistoricoRepository;
 import com.iankyoo.horizon.repository.VagaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +50,11 @@ public class VagaService {
         statusHistoricoRepository.save(historico);
 
         return toResponse(saved);
+    }
+
+    public Page<VagaResponse> listVagas(StatusVaga status, String plataforma, Pageable pageable) {
+        return vagaRepository.findByFilters(status, plataforma, pageable)
+                .map(this::toResponse);
     }
 
 }
