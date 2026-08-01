@@ -2,7 +2,7 @@
 # exposto no host. Valores default aqui servem só para rodar sem setup extra em dev.
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/horizon_db
+    url: jdbc:postgresql://localhost:${DB_PORT:5544}/horizon_db
     username: ${DB_USER:horizon_user}
     password: ${DB_PASSWORD:horizon_pass}
     driver-class-name: org.postgresql.Driver
