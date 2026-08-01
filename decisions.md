@@ -171,3 +171,31 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Mesma lógica da nota de validação da issue #3 — não adiantar escopo de outra issue só para ter um teste "mais completo" agora.
 
 **Trade-off:** A cobertura do filtro por status com dado real de múltiplos status só fica completa depois da issue #6 — o comportamento da query em si (WHERE condicional) já está validado por construção (mesma cláusula usada para os dois filtros, e o filtro por `plataforma` com dados reais heterogêneos já prova que a lógica `:param IS NULL OR ...` funciona).
+
+---
+
+## Issue #5 — `GET /api/v1/vagas/{id}` (detalhe + histórico)
+
+## 2026-08-01 — DTO próprio (`VagaDetailResponse`) em vez de reaproveitar `VagaResponse` com um campo a mais
+
+**Ação:** Criado `VagaDetailResponse` (todos os campos de `VagaResponse` + `List<StatusHistoricoResponse> historico`) como um DTO separado, em vez de adicionar `historico` opcional em `VagaResponse` e reusá-lo em `POST`/`GET listagem`/`GET detalhe`.
+
+**Motivo:** `POST` e `GET` (listagem) nunca carregam histórico — misturar os dois contratos faria `VagaResponse` ter um campo `historico` que é sempre `null`/vazio nesses dois endpoints, obrigando quem consome a API a checar por isso sem necessidade. Contratos de API devem refletir exatamente o que cada endpoint retorna.
+
+**Trade-off:** Duplica os campos base (`id`, `empresa`, `cargo`, etc.) entre `VagaResponse` e `VagaDetailResponse` — aceitável porque são `record`s (zero boilerplate) e a duplicação é só de assinatura, não de lógica.
+
+## 2026-08-01 — Histórico buscado via query direta no repositório, não navegação de entidade
+
+**Ação:** `VagaService.findById` chama `statusHistoricoRepository.findByVagaIdOrderByDataMudancaAsc(id)` separadamente, em vez de `vaga.getHistorico()`.
+
+**Motivo:** Consequência direta da decisão já tomada na issue #2 de não modelar `@OneToMany` em `Vaga` — mantém a Entity sem coleção lazy e a ordenação (`ORDER BY dataMudanca ASC`) explícita na query, sem depender de `@OrderBy` na entidade.
+
+**Trade-off:** Nenhum novo — já estava previsto desde a issue #2.
+
+## 2026-08-01 — Validado com histórico de um único evento (só `APLICADO`)
+
+**Ação:** O teste manual do endpoint confirmou o array `historico` com o único evento existente (`APLICADO`, gravado no `POST` da issue #3) — ainda não há como validar múltiplos eventos no histórico de uma mesma vaga porque `PATCH /vagas/{id}/status` (issue #6) não existe.
+
+**Motivo:** Mesma disciplina de escopo das validações anteriores.
+
+**Trade-off:** A ordenação por `dataMudanca ASC` com múltiplos registros só será provada visualmente na issue #6, quando novos eventos de histórico passarem a ser gerados.
