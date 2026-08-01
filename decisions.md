@@ -107,3 +107,31 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** O escopo da issue #2 é estritamente "entidades + enum + DDL" — repositórios, services e testes entram nas issues seguintes (#3 em diante). Adicionar testes agora seria antecipar trabalho de fora do escopo definido, o que o PRD (seção 9) já identifica como o principal risco do projeto (escopo inflar antes do MVP fechar).
 
 **Trade-off:** Sem teste automatizado, uma regressão futura na modelagem só seria pega manualmente ou pelas issues seguintes que dependem dela — aceitável porque o schema já foi verificado byte a byte contra o banco real nesta validação.
+
+---
+
+## Issue #3 — `POST /api/v1/vagas`
+
+## 2026-08-01 — `SecurityConfig` placeholder (CSRF off + `permitAll`) adicionado antes da hora, para viabilizar validação manual dos endpoints
+
+**Ação:** Criado `security/SecurityConfig.java` desligando CSRF e liberando todas as rotas (`permitAll`), mesmo essa issue não pedindo isso — a issue de autenticação de verdade (JWT) é a #9.
+
+**Motivo:** Sem nenhum `SecurityConfig`, o Spring Security aplica o padrão (Basic Auth + sessão + CSRF ativo). Ao testar o `POST /api/v1/vagas` via curl com o usuário/senha gerados automaticamente, a requisição voltava `401` mesmo com credenciais corretas — o `CsrfFilter` roda antes do `BasicAuthenticationFilter` no chain padrão, então uma requisição `POST` sem token CSRF é rejeitada como se o usuário não estivesse autenticado (o `ExceptionTranslationFilter` trata `AccessDeniedException` de um principal anônimo como se fosse falta de autenticação, chamando o `AuthenticationEntryPoint` → 401 com `WWW-Authenticate: Basic`, disfarçando o real motivo). Sem isso resolvido, seria impossível validar manualmente qualquer endpoint de escrita (#3 a #8) antes da issue #9 — e a arquitetura (seção 2) exige justamente essa validação manual completa do backend antes do frontend começar.
+
+**Trade-off:** A API fica **sem nenhuma autenticação real** entre agora e a issue #9 — aceitável só porque o ambiente é local/dev (nunca fica exposto publicamente nesse estado) e porque o arquivo está marcado explicitamente como placeholder no próprio código e será totalmente substituído, não incrementado, quando o JWT entrar.
+
+## 2026-08-01 — `VagaService.createVaga` é `@Transactional`
+
+**Ação:** O método que salva a `Vaga` e o primeiro `StatusHistorico` está anotado com `@Transactional`, garantindo que os dois `save()` aconteçam na mesma transação.
+
+**Motivo:** A issue pede explicitamente "ao criar, também gravar o primeiro registro em StatusHistorico" — sem transação, uma falha entre os dois `save()` deixaria uma `Vaga` sem histórico algum, quebrando a premissa do domínio (toda vaga sempre tem pelo menos um evento de histórico).
+
+**Trade-off:** Nenhum relevante para este caso de uso (é uma operação de escrita simples, sem chamada externa lenta dentro da transação).
+
+## 2026-08-01 — Validação end-to-end confirmada via `docker compose` + `psql`, sem endpoint de leitura ainda
+
+**Ação:** O endpoint foi validado subindo `docker compose` e testando `POST /api/v1/vagas` via curl (caso de sucesso 201 + caso de validação 400 com `empresa`/`cargo` em branco), depois conferindo as duas linhas persistidas (`vaga` e `status_historico`) direto via `psql` — não existe ainda `GET /vagas/{id}` (issue #5) para inspecionar pela própria API.
+
+**Motivo:** Manter a validação restrita ao que a issue #3 realmente entrega, sem adiantar o endpoint de leitura só para "testar mais bonito".
+
+**Trade-off:** Nenhum — é só uma nota de que a validação ponta a ponta via HTTP completa (criar e depois ler pela API) só fica possível a partir da issue #5.
