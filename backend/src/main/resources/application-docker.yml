@@ -1,0 +1,11 @@
+# Profile usado quando a API roda dentro do docker-compose (SPRING_PROFILES_ACTIVE=docker),
+# no mesmo network do container postgres. Sem defaults: valores vêm de .env via docker-compose.
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/${DB_NAME:horizon_db}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+jwt:
+  secret: ${JWT_SECRET}

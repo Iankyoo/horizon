@@ -16,6 +16,21 @@ Projeto de portfólio (Java/Spring Boot + Next.js) que também serve como ferram
 - **Gráficos:** Chart.js.
 - **Infra:** Docker Compose (API + PostgreSQL).
 
+## Como rodar (backend)
+
+```bash
+cp .env.example .env   # ajuste DB_PASSWORD e JWT_SECRET
+
+# Sobe API + PostgreSQL em containers
+docker compose up --build
+
+# OU, rodando a API local (perfil `local`) contra o Postgres do compose:
+docker compose up postgres -d
+cd backend && ./mvnw spring-boot:run
+```
+
+API disponível em `http://localhost:8081` (porta configurável via `APP_PORT` no `.env`; rodando local via `mvnw`, é `8080`).
+
 ## Ordem de execução
 
 1. Modelagem + backend completo (entidades, endpoints, regras de transição de status).

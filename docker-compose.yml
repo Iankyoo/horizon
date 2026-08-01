@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: horizon_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-horizon_db}
+      POSTGRES_USER: ${DB_USER:-horizon_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?informe DB_PASSWORD no .env}
+    ports:
+      - "5433:5432"
+    volumes:
+      - horizon_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-horizon_user} -d ${DB_NAME:-horizon_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+    container_name: horizon_api
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_NAME: ${DB_NAME:-horizon_db}
+      DB_USER: ${DB_USER:-horizon_user}
+      DB_PASSWORD: ${DB_PASSWORD:?informe DB_PASSWORD no .env}
+      JWT_SECRET: ${JWT_SECRET:?informe JWT_SECRET no .env}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+    ports:
+      - "${APP_PORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  horizon_data:

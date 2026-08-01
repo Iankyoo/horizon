@@ -1,0 +1,12 @@
+# Profile ativo por padrão: API rodando local (mvnw) contra o Postgres do docker-compose,
+# exposto no host. Valores default aqui servem só para rodar sem setup extra em dev.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/horizon_db
+    username: ${DB_USER:horizon_user}
+    password: ${DB_PASSWORD:horizon_pass}
+    driver-class-name: org.postgresql.Driver
+
+jwt:
+  # Secret de desenvolvimento apenas — nunca usar em produção. Sobrescreva com JWT_SECRET.
+  secret: ${JWT_SECRET:oikhdNjholSZeVn42IEzYSIJM+Q9HxMkQ52pmpYqjqw=}
