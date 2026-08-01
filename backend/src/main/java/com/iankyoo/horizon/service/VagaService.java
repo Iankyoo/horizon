@@ -1,0 +1,53 @@
+package com.iankyoo.horizon.service;
+
+import com.iankyoo.horizon.dto.VagaRequest;
+import com.iankyoo.horizon.dto.VagaResponse;
+import com.iankyoo.horizon.enums.StatusVaga;
+import com.iankyoo.horizon.model.StatusHistorico;
+import com.iankyoo.horizon.model.Vaga;
+import com.iankyoo.horizon.repository.StatusHistoricoRepository;
+import com.iankyoo.horizon.repository.VagaRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class VagaService {
+
+    private final VagaRepository vagaRepository;
+    private final StatusHistoricoRepository statusHistoricoRepository;
+
+    private VagaResponse toResponse(Vaga vaga) {
+        return new VagaResponse(
+                vaga.getId(),
+                vaga.getEmpresa(),
+                vaga.getCargo(),
+                vaga.getPlataforma(),
+                vaga.getLink(),
+                vaga.getStatusAtual(),
+                vaga.getDataCriacao()
+        );
+    }
+
+    @Transactional
+    public VagaResponse createVaga(VagaRequest request) {
+        Vaga vaga = Vaga.builder()
+                .empresa(request.empresa())
+                .cargo(request.cargo())
+                .plataforma(request.plataforma())
+                .link(request.link())
+                .statusAtual(StatusVaga.APLICADO)
+                .build();
+        Vaga saved = vagaRepository.save(vaga);
+
+        StatusHistorico historico = StatusHistorico.builder()
+                .vaga(saved)
+                .status(StatusVaga.APLICADO)
+                .build();
+        statusHistoricoRepository.save(historico);
+
+        return toResponse(saved);
+    }
+
+}
