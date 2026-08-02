@@ -1,5 +1,6 @@
 package com.iankyoo.horizon.service;
 
+import com.iankyoo.horizon.dto.AtualizarStatusRequest;
 import com.iankyoo.horizon.dto.StatusHistoricoResponse;
 import com.iankyoo.horizon.dto.VagaDetailResponse;
 import com.iankyoo.horizon.dto.VagaRequest;
@@ -24,6 +25,11 @@ public class VagaService {
 
     private final VagaRepository vagaRepository;
     private final StatusHistoricoRepository statusHistoricoRepository;
+
+    private Vaga findVaga(Long id) {
+        return vagaRepository.findById(id)
+                .orElseThrow(() -> new VagaNotFoundException(id));
+    }
 
     private VagaResponse toResponse(Vaga vaga) {
         return new VagaResponse(
@@ -63,8 +69,7 @@ public class VagaService {
     }
 
     public VagaDetailResponse findById(Long id) {
-        Vaga vaga = vagaRepository.findById(id)
-                .orElseThrow(() -> new VagaNotFoundException(id));
+        Vaga vaga = findVaga(id);
 
         List<StatusHistoricoResponse> historico = statusHistoricoRepository
                 .findByVagaIdOrderByDataMudancaAsc(id).stream()
@@ -81,6 +86,23 @@ public class VagaService {
                 vaga.getDataCriacao(),
                 historico
         );
+    }
+
+    @Transactional
+    public VagaResponse atualizarStatus(Long id, AtualizarStatusRequest request) {
+        Vaga vaga = findVaga(id);
+
+        vaga.setStatusAtual(request.status());
+        Vaga saved = vagaRepository.save(vaga);
+
+        StatusHistorico historico = StatusHistorico.builder()
+                .vaga(saved)
+                .status(request.status())
+                .observacao(request.observacao())
+                .build();
+        statusHistoricoRepository.save(historico);
+
+        return toResponse(saved);
     }
 
 }
