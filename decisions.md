@@ -199,3 +199,31 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Mesma disciplina de escopo das validações anteriores.
 
 **Trade-off:** A ordenação por `dataMudanca ASC` com múltiplos registros só será provada visualmente na issue #6, quando novos eventos de histórico passarem a ser gerados.
+
+---
+
+## Issue #6 — `PATCH /api/v1/vagas/{id}/status`
+
+## 2026-08-02 — `atualizarStatus` retorna `VagaResponse` (sem histórico), não `VagaDetailResponse`
+
+**Ação:** O endpoint retorna a `Vaga` atualizada no formato "raso" (`VagaResponse`), igual ao `POST`, em vez de trazer o histórico completo (`VagaDetailResponse`) junto.
+
+**Motivo:** É literalmente o que a issue pede ("Retorna 200 com a Vaga atualizada"). Quem quiser o histórico atualizado depois da mudança já tem `GET /vagas/{id}` (issue #5) para isso — evita um segundo formato de resposta fazendo a mesma coisa de dois jeitos diferentes.
+
+**Trade-off:** O frontend (issues futuras), depois de mudar o status na tela de detalhe, provavelmente vai precisar re-buscar a vaga via `GET` para atualizar o histórico exibido, em vez de já receber tudo na resposta do `PATCH` — aceitável, é uma chamada HTTP a mais em um fluxo que já é de clique único.
+
+## 2026-08-02 — Nenhuma validação de transição além de `@NotNull` no enum
+
+**Ação:** `VagaService.atualizarStatus` aceita qualquer `StatusVaga` não nulo e simplesmente aplica — não há checagem de "de qual status para qual status" é permitido.
+
+**Motivo:** Decisão já fechada na arquitetura (registrada na primeira entrada deste log): transições são livres entre quaisquer status, mais `REJEITADO` a partir de qualquer estado — ou seja, **toda** transição é válida, então não existe regra a mais para implementar além de "o valor é um `StatusVaga` de verdade" (o que o `@NotNull` + deserialização do enum já garantem).
+
+**Trade-off:** Nenhum bug possível aqui é pego pelo backend (ex: usuário clicar errado e voltar uma vaga de `OFERTA` para `APLICADO`) — é o trade-off já aceito e documentado na decisão de arquitetura, não um novo.
+
+## 2026-08-02 — Falso positivo de bug durante a validação: acentuação quebrando o JSON era o `curl` do Git Bash, não o backend
+
+**Ação:** Nenhuma mudança de código. Registrando o diagnóstico para não repetir a investigação.
+
+**Motivo:** O primeiro teste de transição (`observacao` com "técnico") voltou `400 Bad Request` genérico (formato de erro padrão do Spring, não o `Map` da nossa validação) — parecia um bug real. Reproduzindo o mesmo payload sem acentos funcionou (`200`), e reproduzindo o payload acentuado via arquivo `UTF-8` (`curl --data-binary @arquivo.json`) também funcionou e persistiu o texto corretamente no Postgres (`SELECT observacao ...` mostrou "técnico" intacto). Ou seja: o Git Bash/curl no Windows não estava enviando os bytes UTF-8 corretos quando o texto acentuado vinha inline no `-d '...'` do comando — um problema do ambiente de teste, não da aplicação.
+
+**Trade-off:** Nenhum — só uma nota para futuras validações manuais: sempre que o payload de teste tiver acento, usar `--data-binary @arquivo` com o arquivo salvo em UTF-8, nunca `-d` inline no Git Bash.
