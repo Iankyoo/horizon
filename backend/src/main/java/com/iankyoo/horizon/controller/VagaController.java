@@ -1,5 +1,6 @@
 package com.iankyoo.horizon.controller;
 
+import com.iankyoo.horizon.dto.AtualizarStatusRequest;
 import com.iankyoo.horizon.dto.VagaDetailResponse;
 import com.iankyoo.horizon.dto.VagaRequest;
 import com.iankyoo.horizon.dto.VagaResponse;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -42,6 +44,11 @@ public class VagaController {
     @GetMapping("/{id}")
     public ResponseEntity<VagaDetailResponse> findById(@PathVariable Long id) {
         return ResponseEntity.ok(vagaService.findById(id));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<VagaResponse> atualizarStatus(@PathVariable Long id, @RequestBody @Valid AtualizarStatusRequest request) {
+        return ResponseEntity.ok(vagaService.atualizarStatus(id, request));
     }
 
 }
