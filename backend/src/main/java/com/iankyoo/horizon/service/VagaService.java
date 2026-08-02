@@ -105,4 +105,10 @@ public class VagaService {
         return toResponse(saved);
     }
 
+    public void deletarVaga(Long id) {
+        Vaga vaga = findVaga(id);
+        vaga.setArquivada(true);
+        vagaRepository.save(vaga);
+    }
+
 }
