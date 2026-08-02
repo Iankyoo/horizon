@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 public interface VagaRepository extends JpaRepository<Vaga, Long> {
 
     @Query("""
@@ -17,5 +20,18 @@ public interface VagaRepository extends JpaRepository<Vaga, Long> {
             AND (:plataforma IS NULL OR v.plataforma = :plataforma)
             """)
     Page<Vaga> findByFilters(@Param("status") StatusVaga status, @Param("plataforma") String plataforma, Pageable pageable);
+
+    long countByDataCriacaoGreaterThanEqual(LocalDateTime since);
+
+    @Query("SELECT v.statusAtual, COUNT(v) FROM Vaga v GROUP BY v.statusAtual")
+    List<Object[]> countGroupedByStatusAtual();
+
+    @Query("""
+            SELECT v.plataforma, COUNT(v) FROM Vaga v
+            WHERE v.plataforma IS NOT NULL
+            GROUP BY v.plataforma
+            ORDER BY COUNT(v) DESC
+            """)
+    List<Object[]> countGroupedByPlataforma(Pageable pageable);
 
 }
