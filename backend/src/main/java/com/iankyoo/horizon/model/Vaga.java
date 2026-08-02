@@ -36,4 +36,7 @@ public class Vaga {
     @CreationTimestamp
     private LocalDateTime dataCriacao;
 
+    @Column(nullable = false, columnDefinition = "boolean not null default false")
+    private boolean arquivada;
+
 }
