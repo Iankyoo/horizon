@@ -9,4 +9,6 @@ public interface StatusHistoricoRepository extends JpaRepository<StatusHistorico
 
     List<StatusHistorico> findByVagaIdOrderByDataMudancaAsc(Long vagaId);
 
+    List<StatusHistorico> findAllByOrderByVagaIdAscDataMudancaAsc();
+
 }
