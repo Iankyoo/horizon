@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +50,12 @@ public class VagaController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<VagaResponse> atualizarStatus(@PathVariable Long id, @RequestBody @Valid AtualizarStatusRequest request) {
         return ResponseEntity.ok(vagaService.atualizarStatus(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deletarVaga(@PathVariable Long id) {
+        vagaService.deletarVaga(id);
+        return ResponseEntity.noContent().build();
     }
 
 }
