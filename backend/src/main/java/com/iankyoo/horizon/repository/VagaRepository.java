@@ -12,7 +12,8 @@ public interface VagaRepository extends JpaRepository<Vaga, Long> {
 
     @Query("""
             SELECT v FROM Vaga v
-            WHERE (:status IS NULL OR v.statusAtual = :status)
+            WHERE v.arquivada = false
+            AND (:status IS NULL OR v.statusAtual = :status)
             AND (:plataforma IS NULL OR v.plataforma = :plataforma)
             """)
     Page<Vaga> findByFilters(@Param("status") StatusVaga status, @Param("plataforma") String plataforma, Pageable pageable);
