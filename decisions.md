@@ -263,3 +263,55 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Arquivar é "tirar da lista ativa", não "esconder para sempre" — especialmente relevante para a issue #8 (dashboard), que provavelmente vai precisar acessar dados de vagas arquivadas para calcular métricas históricas corretas (uma vaga rejeitada e arquivada ainda deve contar no funil).
 
 **Trade-off:** Nenhum custo — é consistente com o motivo de ter escolhido soft delete em primeiro lugar.
+
+---
+
+## Issue #8 — `GET /api/v1/dashboard/metrics`
+
+## 2026-08-02 — Métricas incluem vagas arquivadas (diferente da listagem, que exclui)
+
+**Ação:** `DashboardService` não filtra por `arquivada` em nenhuma das 5 métricas — `vagaRepository.count()`, a distribuição por status, a taxa de conversão e o tempo médio consideram **todas** as vagas, arquivadas ou não. Só `VagaRepository.findByFilters` (usado pela listagem, issue #4) filtra `arquivada = false`.
+
+**Motivo:** O propósito central do dashboard (PRD seção 2) é responder "onde o funil está travando" — uma vaga rejeitada e arquivada é exatamente o tipo de dado que precisa continuar contando na métrica (senão a taxa de conversão fica artificialmente otimista, escondendo rejeições). Arquivar é um controle de visibilidade da lista de trabalho ativa, não uma exclusão lógica do histórico — mesma lógica já usada na decisão da issue #7 de manter `GET /vagas/{id}` funcionando para arquivadas. Validei isso explicitamente: arquivei uma vaga `REJEITADO` e confirmei que `totalVagas` e `distribuicaoPorStatus` no dashboard não mudaram, enquanto ela sumiu da listagem ativa.
+
+**Trade-off:** Nenhum — é o comportamento correto para o caso de uso; documentando porque é fácil, ao ler só o código da listagem, presumir (errado) que todo endpoint filtra arquivadas.
+
+## 2026-08-02 — Taxa de conversão calculada por "alcançou o status alguma vez" (histórico), não pelo `statusAtual`
+
+**Ação:** `aplicadoParaTriagem`/`triagemParaEntrevista`/`entrevistaParaOferta` são calculados contando quantas vagas **distintas** têm pelo menos um evento daquele status em `StatusHistorico` (`vagasQueAtingiram`), não quantas vagas têm `statusAtual` igual àquele valor agora.
+
+**Motivo:** Como as transições são livres em qualquer direção (decisão da arquitetura, seção 10), o `statusAtual` atual não reflete progresso histórico — uma vaga que chegou a `ENTREVISTA` e foi corrigida de volta para `TRIAGEM` por engano continuaria contando como "chegou em entrevista" para fins de funil, mesmo não estando mais lá agora. Métrica de conversão precisa responder "quantas vagas já passaram por essa etapa", não "quantas estão nela neste exato momento" (isso já é a métrica de distribuição por status, que é separada).
+
+**Trade-off:** Uma vaga que oscila entre estados só é contada uma vez por etapa (`Set<StatusVaga>` por vaga) — nenhuma vaga infla a métrica de conversão por ter ido e voltado várias vezes. Nenhum custo relevante.
+
+## 2026-08-02 — Tempo médio por etapa calculado em Java a partir de intervalos consecutivos, não em SQL
+
+**Ação:** `DashboardService` busca todo o `StatusHistorico` ordenado por `vaga_id, dataMudanca` (`findAllByOrderByVagaIdAscDataMudancaAsc`) e calcula, em memória, a duração entre cada evento e o próximo evento da mesma vaga, atribuindo a duração ao status do evento anterior (o "tempo que ficou" naquele status até sair dele).
+
+**Motivo:** Postgres resolveria isso com `LAG()`/`LEAD()` (window functions), mas isso amarraria a query a sintaxe específica do Postgres e seria bem mais difícil de ler/testar do que um loop simples em Java. Dado o volume de dados esperado (uso pessoal, não milhares de vagas), processar em memória é perfeitamente adequado e mantém a lógica portável e legível.
+
+**Trade-off:** Não escala para um volume grande de histórico (traria todas as linhas para a JVM de uma vez) — irrelevante na escala da v1; se um dia isso importar, é uma otimização isolada dentro do mesmo método, não uma mudança de contrato da API.
+
+## 2026-08-02 — Unidade de tempo: dias (fracionários), não horas
+
+**Ação:** `tempoMedioPorEtapaEmDias` expressa a duração em dias (double, arredondado a 2 casas decimais), calculado como `Duration.between(...).toMinutes() / 1440.0`.
+
+**Motivo:** Nenhum dos dois documentos especifica a unidade. Processos seletivos tipicamente se medem em dias/semanas, não horas — um valor como "2.5 dias" é mais legível num dashboard de busca de vaga do que "60 horas". Validei a conversão manipulando timestamps reais no Postgres (gaps de 2, 3 e 1 dia entre eventos de uma vaga) e conferindo que o endpoint retornou exatamente `2.0`/`3.0` (misturado com frações de segundo de outras vagas de teste, dando `0.67`/`1.5`) — matemática batendo com o cálculo manual.
+
+**Trade-off:** Para vagas com etapas muito rápidas (minutos), o valor aparece como uma fração de dia pequena (ex: `0.0003`) em vez de um número "redondo" — aceitável, é só uma questão de formatação que o frontend pode ajustar na exibição.
+
+## 2026-08-02 — "Total por período" interpretado como últimos 30 dias corridos (fixo, sem parâmetro)
+
+**Ação:** `totalUltimos30Dias` conta vagas com `dataCriacao >= hoje - 30 dias`. Não há parâmetro para escolher outro período.
+
+**Motivo:** O PRD pede "Total de vagas aplicadas (geral e por período)" sem definir o período — nem a arquitetura elabora além de listar "total" no payload. 30 dias é um recorte padrão razoável e comum em dashboards pessoais ("neste último mês"), e evita inventar uma API de range de datas que nenhum documento pede.
+
+**Trade-off:** Se o usuário quiser outro recorte (7 dias, 90 dias, ano corrente), isso vira uma issue nova de verdade (parâmetro de período), não uma extensão silenciosa desta.
+
+## 2026-08-02 — Top plataformas limitado a 5, via `Pageable` na query
+
+**Ação:** `countGroupedByPlataforma` recebe um `Pageable` (`PageRequest.of(0, 5)`) para aplicar `LIMIT` direto na query SQL, em vez de truncar a lista em Java depois de buscar tudo.
+
+**Motivo:** "Top" já sugere um recorte, e 5 é um tamanho comum de gráfico de barras/ranking em dashboards. Aplicar o limite na query evita trazer plataformas irrelevantes (com 1 candidatura cada) do banco à toa.
+
+**Trade-off:** Nenhum documento fixa o número 5 — é uma escolha de UX razoável, documentada aqui para não parecer arbitrária depois. Fácil de ajustar (é uma constante no `DashboardService`) se o usuário preferir outro valor ao usar o dashboard de verdade.
