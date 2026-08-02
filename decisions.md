@@ -227,3 +227,39 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** O primeiro teste de transição (`observacao` com "técnico") voltou `400 Bad Request` genérico (formato de erro padrão do Spring, não o `Map` da nossa validação) — parecia um bug real. Reproduzindo o mesmo payload sem acentos funcionou (`200`), e reproduzindo o payload acentuado via arquivo `UTF-8` (`curl --data-binary @arquivo.json`) também funcionou e persistiu o texto corretamente no Postgres (`SELECT observacao ...` mostrou "técnico" intacto). Ou seja: o Git Bash/curl no Windows não estava enviando os bytes UTF-8 corretos quando o texto acentuado vinha inline no `-d '...'` do comando — um problema do ambiente de teste, não da aplicação.
 
 **Trade-off:** Nenhum — só uma nota para futuras validações manuais: sempre que o payload de teste tiver acento, usar `--data-binary @arquivo` com o arquivo salvo em UTF-8, nunca `-d` inline no Git Bash.
+
+---
+
+## Issue #7 — `DELETE /api/v1/vagas/{id}`
+
+## 2026-08-02 — Soft delete (`arquivada: boolean`), não hard delete
+
+**Ação:** `DELETE` não remove a linha da tabela `vaga` — seta `arquivada = true`. A própria issue deixava essa decisão em aberto explicitamente.
+
+**Motivo:** `StatusHistorico` tem FK `NOT NULL` para `vaga` — um hard delete exigiria cascade delete do histórico (ou bloquear o delete por violação de FK), destruindo justamente os dados que a arquitetura (seção 4) diz existirem para "calcular tempo médio em cada etapa". O objetivo duplo do projeto (portfólio + ferramenta real de busca de vaga) inclui dashboard de métricas (issue #8) que depende desse histórico sobrevivendo mesmo depois que uma vaga é descartada/arquivada — é exatamente o cenário mais comum (vaga rejeitada, usuário arquiva) e o mais importante para as métricas de funil.
+
+**Trade-off:** A tabela `vaga` cresce indefinidamente (nunca libera espaço fisicamente) — irrelevante na escala de uso pessoal da v1. Fica também a responsabilidade implícita de sempre filtrar `arquivada = false` em qualquer query nova que liste vagas (documentado abaixo).
+
+## 2026-08-02 — Coluna `arquivada` com `columnDefinition` explícito (`default false`)
+
+**Ação:** `@Column(nullable = false, columnDefinition = "boolean not null default false")` em vez de só `@Column(nullable = false)`.
+
+**Motivo:** O ambiente de teste já tinha 3 vagas persistidas de validações anteriores. Sem `DEFAULT` no `ALTER TABLE`, o Postgres rejeitaria a coluna `NOT NULL` nova por causa das linhas existentes sem valor. Validei isso rodando a migração de fato contra o volume com dados (`docker compose up --build` reaproveitando o volume antigo) — subiu limpo e as 3 linhas ganharam `arquivada = false` automaticamente.
+
+**Trade-off:** Nenhum — é a forma correta de adicionar uma coluna `NOT NULL` em uma tabela que já pode ter dados, e generaliza para qualquer ambiente (não só o de teste).
+
+## 2026-08-02 — Listagem (`GET /vagas`) passa a excluir arquivadas incondicionalmente, sem parâmetro para incluí-las
+
+**Ação:** `VagaRepository.findByFilters` ganhou `WHERE v.arquivada = false` fixo, antes dos filtros opcionais de `status`/`plataforma`. Não existe um jeito de listar vagas arquivadas via API nesta issue.
+
+**Motivo:** Sem isso, "excluir/arquivar" (PRD seção 5) não mudaria nada do ponto de vista do usuário — a vaga continuaria aparecendo normalmente na listagem. O propósito prático do soft delete é justamente sumir da tela de listagem enquanto preserva o dado para métricas.
+
+**Trade-off:** Não há, na v1, nenhuma forma de "desarquivar" ou visualizar só as arquivadas pela API — aceitável porque nenhum documento de produto pede isso; se virar necessário, é uma issue nova (ex: `GET /vagas?arquivada=true`), não uma extensão desta.
+
+## 2026-08-02 — `GET /vagas/{id}` continua funcionando para vagas arquivadas
+
+**Ação:** `findById` não foi alterado — não checa `arquivada`. Uma vaga arquivada continua acessível pelo detalhe (confirmado no teste: `GET /vagas/2` depois do `DELETE` retornou `200` com o histórico completo).
+
+**Motivo:** Arquivar é "tirar da lista ativa", não "esconder para sempre" — especialmente relevante para a issue #8 (dashboard), que provavelmente vai precisar acessar dados de vagas arquivadas para calcular métricas históricas corretas (uma vaga rejeitada e arquivada ainda deve contar no funil).
+
+**Trade-off:** Nenhum custo — é consistente com o motivo de ter escolhido soft delete em primeiro lugar.
