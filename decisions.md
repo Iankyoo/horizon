@@ -535,3 +535,11 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Um badge é uma afirmação verificável — não faz sentido mostrar um badge de build/CI (não existe pipeline, decisão explícita da v1 documentada em `docs/arquitetura.md` seção 9: "Sem CI/CD na v1") nem de licença (não existe arquivo `LICENSE` no repo). Badges que prometem algo que não existe são pior que não ter badge nenhum.
 
 **Trade-off:** Nenhum — se um `LICENSE` ou CI forem adicionados no futuro, é só adicionar o badge correspondente.
+
+## 2026-08-03 — Dataset de 50 vagas gerado via SQL direto, não via API
+
+**Ação:** Para enriquecer os screenshots (e popular de vez o gráfico "tempo médio até a próxima mudança", que estava sempre zerado), gerei 50 vagas com status/plataforma aleatórios e histórico de status com gaps de 1 a 45 dias entre mudanças, via `INSERT` direto nas tabelas `vaga`/`status_historico` (script Python gerando SQL, aplicado com `psql` dentro do container), em vez de criar via `POST /vagas` + `PATCH /vagas/{id}/status`.
+
+**Motivo:** `data_criacao` (`Vaga`) e `data_mudanca` (`StatusHistorico`) usam `@CreationTimestamp` do Hibernate — sempre o instante em que a linha é inserida, sem nenhum campo na API para sobrescrever. Criar as 50 vagas via API produziria um histórico inteiro concentrado em poucos segundos (como aconteceu nos testes anteriores, issues #12-#15), tornando qualquer média de "dias até a próxima mudança" artificialmente 0. Só dá pra simular um histórico realista (candidaturas ao longo de meses, com dias de espera entre etapas) escrevendo os timestamps diretamente no banco.
+
+**Trade-off:** Esse dataset só existe para fins de demonstração/screenshot — não passou pelas regras de validação da API (embora respeite as mesmas constraints do schema: enums válidos, FK, not-null). Aceitável porque é dado descartável, gerado numa massa de teste, não em produção; a lógica de negócio em si (Service/Controller) continua sendo exercitada e validada normalmente pelos testes de API das issues #3-#10, que não usam esse atalho.
