@@ -459,3 +459,39 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Fora do escopo declarado da issue #13 (`docs/prd.md` seção 5 item 2: "detalhe + histórico + mudança de status"). Adicionar mais uma ação não pedida infla a página sem necessidade real agora.
 
 **Trade-off:** Se o usuário quiser arquivar uma vaga pela UI, precisa esperar uma issue futura (não coberta nas #11-#15 originais) ou usar a API diretamente — aceitável porque nenhuma das 15 issues do MVP pede essa ação na UI.
+
+---
+
+## Issue #14 — Página `/dashboard` (métricas com Chart.js)
+
+## 2026-08-03 — `react-chartjs-2` (wrapper React) em vez de `chart.js` puro com `useRef`/`useEffect` manual
+
+**Ação:** Instalei `chart.js` + `react-chartjs-2` e criei um único componente `components/BarChart.tsx` reutilizado nas 3 visualizações em barra (distribuição por status, tempo médio por etapa, top plataformas), em vez de manipular um `<canvas>` via `useRef` diretamente.
+
+**Motivo:** `docs/arquitetura.md` seção 7 pede explicitamente "reduzir a quantidade de conceitos novos de frontend de uma vez". Gerenciar o ciclo de vida de uma instância `Chart.js` manualmente (criar no mount, destruir no unmount, atualizar dados sem vazar memória) é exatamente o tipo de detalhe de baixo nível que o wrapper resolve, deixando o componente declarativo (props `labels`/`data`/`colors` → JSX), consistente com o resto do app que já é 100% componentes funcionais simples.
+
+**Trade-off:** Mais uma dependência no `package.json` (que carrega o próprio `chart.js` como peer) só para evitar ~15 linhas de gerência manual de ciclo de vida — aceitável dado que é a biblioteca de gráficos que a própria stack técnica do PRD (seção 7) pede nominalmente.
+
+## 2026-08-03 — Paleta duplicada em hex literal (`STATUS_HEX`) só para o Chart.js
+
+**Ação:** `lib/status.ts` ganhou um terceiro record, `STATUS_HEX`, com os mesmos 5 valores hex já definidos em `globals.css` (`--color-dawn` etc.), usado só para colorir as barras dos gráficos.
+
+**Motivo:** Chart.js desenha em `<canvas>`, que não entende classes Tailwind (`bg-dawn`) — precisa de uma string de cor CSS de verdade (`#2e2a6b`) passada em JS. Não existe forma direta de "ler" o valor resolvido de uma custom property do Tailwind a partir do bundle JS sem uma chamada a `getComputedStyle` em runtime (mais uma camada de indireção por nenhum ganho real, já que os hex já são fixos e conhecidos em build-time).
+
+**Trade-off:** Se a paleta em `globals.css` mudar no futuro, `STATUS_HEX` precisa ser atualizado manualmente em paralelo — risco baixo porque as duas cópias vivem no mesmo arquivo `lib/status.ts` (ao lado de `STATUS_COR`/`STATUS_TEXTO`, já duplicados por natureza — um record por formato de consumo), então divergência é fácil de notar e corrigir.
+
+## 2026-08-03 — Taxa de conversão como 3 cards numéricos, não gráfico de barras
+
+**Ação:** As 3 taxas de conversão (`aplicadoParaTriagem`, `triagemParaEntrevista`, `entrevistaParaOferta`) aparecem como cards de porcentagem grande (estilo "stat"), não como mais um `BarChart`.
+
+**Motivo:** `docs/prd.md` seção 6 pede gráfico de barras explicitamente só para "distribuição por status atual" — para taxa de conversão, só diz "ex: % de aplicações que viraram triagem". Três valores percentuais isolados (sem relação de posição num eixo comum, cada um é uma razão entre duas etapas diferentes) comunicam mais rápido como número grande do que como barras de alturas parecidas sem uma escala compartilhada óbvia.
+
+**Trade-off:** Nenhum gráfico ali quebra a expectativa de "todo dashboard tem só gráficos" — aceitável porque a página já tem 3 gráficos de barra (status, tempo médio, plataformas) cobrindo o requisito da stack técnica (Chart.js) e o restante do app já é deliberadamente quieto/tabular (decisão da issue #11/#12).
+
+## 2026-08-03 — Dados de teste criados via `curl` roteirizado para validar os 3 gráficos com dado real, não só com zeros
+
+**Ação:** Antes do screenshot final, populei o banco (volume descartável, removido depois com `docker compose down -v`) com 6 vagas em estágios diferentes do funil (uma até OFERTA, uma até REJEITADO, uma parada em TRIAGEM, duas só APLICADO) via `curl` roteirizado, em vez de validar a página só com o estado vazio.
+
+**Motivo:** Com o banco vazio ou com só 1 vaga (estado deixado pela issue #13), a maioria das barras ficaria em zero e não daria pra confirmar visualmente se as cores por status, a orientação horizontal do gráfico de plataformas e a legenda dos eixos estavam corretas. Validado via Playwright: screenshot mostra as 5 métricas com dados não-triviais (`distribuicaoPorStatus` com todos os 5 status representados, `topPlataformas` com Gupy/LinkedIn em contagens diferentes).
+
+**Trade-off:** Mais um passo de setup manual antes de cada validação visual de dashboard — aceitável porque é o único jeito de ver o gráfico "de verdade" (com barras de tamanhos diferentes) em vez de confiar que ele vai renderizar certo com dado real só porque rendeizou com zeros.
