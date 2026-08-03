@@ -17,12 +17,15 @@ app/
   layout.tsx      raiz: fontes (Fraunces/IBM Plex), Header persistente
   login/          tela de login (POST /api/v1/auth/login)
   vagas/          listagem + criação (issue #12)
+  vagas/[id]/     detalhe + histórico + mudança de status (issue #13)
+  dashboard/      5 métricas do funil via Chart.js (issue #14)
 lib/
   api.ts          fetch client centralizado + armazenamento de token
   types.ts        tipos espelhando os DTOs do backend
-  status.ts       cor/rótulo por StatusVaga (fonte única de verdade)
+  status.ts       cor/rótulo/hex por StatusVaga (fonte única de verdade)
 components/
   Header.tsx      nav + faixa-horizonte (distribuição por status)
+  BarChart.tsx    wrapper de react-chartjs-2 usado no dashboard
 ```
 
 Sistema de design documentado em `../decisions.md` (issue #11).
