@@ -495,3 +495,23 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Com o banco vazio ou com só 1 vaga (estado deixado pela issue #13), a maioria das barras ficaria em zero e não daria pra confirmar visualmente se as cores por status, a orientação horizontal do gráfico de plataformas e a legenda dos eixos estavam corretas. Validado via Playwright: screenshot mostra as 5 métricas com dados não-triviais (`distribuicaoPorStatus` com todos os 5 status representados, `topPlataformas` com Gupy/LinkedIn em contagens diferentes).
 
 **Trade-off:** Mais um passo de setup manual antes de cada validação visual de dashboard — aceitável porque é o único jeito de ver o gráfico "de verdade" (com barras de tamanhos diferentes) em vez de confiar que ele vai renderizar certo com dado real só porque rendeizou com zeros.
+
+---
+
+## Issue #15 — Publicar v1 (fechar critérios de sucesso do MVP)
+
+## 2026-08-03 — README raiz estava desatualizado e foi corrigido antes de fechar o checklist
+
+**Ação:** Reescrevi partes do `README.md` raiz: seção "Status" dizia "v1 ainda não iniciada" (texto do dia 1 do projeto, nunca atualizado); "Ordem de execução" mencionava "regras de transição de status" como se existisse uma máquina de estado — decisão revertida na issue #6/#7 (status é livre, sem validação de transição) e nunca corrigida no README. Adicionei também a seção "Como rodar (frontend)" (existia só no `frontend/README.md`, não linkada/resumida na raiz) e uma seção "Páginas" listando as 4 rotas do app.
+
+**Motivo:** O critério de sucesso da issue #15 (`docs/prd.md` seção 8) exige "repo documentado, README... instruções claras de execução local" — um README que descreve uma feature que não existe (máquina de estado) e omite como rodar metade do projeto (frontend) não cumpre isso, mesmo com o código funcionando. Só percebi a divergência lendo o arquivo de novo com o projeto inteiro pronto, não durante o desenvolvimento incremental (cada issue mexeu no código, não necessariamente no README raiz).
+
+**Trade-off:** Nenhum — é correção de documentação, sem impacto em código.
+
+## 2026-08-03 — Checklist de aceite fechado com validação ponta a ponta nova (não reaproveitando só os testes das issues #12-#14)
+
+**Ação:** Rodei os 4 itens do checklist da issue #15 contra um ambiente limpo (`docker compose up --build` com volume novo): (1) roteiro `curl` cobrindo login→criar→listar→filtrar→detalhe→2x mudança de status→detalhe→arquivar→listar (confirma exclusão)→dashboard (confirma que a vaga arquivada continua contando nas métricas); (2) fluxo Playwright tocando as 4 páginas do frontend em sequência (login→criar vaga pela UI→detalhe→mudar status→dashboard) sem nenhum erro de console; (3) `grep` no código-fonte por palavras-chave das features fora de escopo (e-mail, parsing, notificação, multi-tenant) confirmando zero ocorrências; (4) `gh repo view` confirmando visibilidade `PUBLIC`.
+
+**Motivo:** Reaproveitar só os testes já feitos nas issues #12-#14 verificaria cada peça isoladamente, mas não garante que elas continuam funcionando *juntas* depois de mudanças subsequentes (ex: dependências novas do Chart.js, edições no `lib/status.ts`). Rodar tudo de novo do zero, numa sessão só, é o que realmente valida "v1 pronta para publicar" — que é sobre o sistema como um todo, não sobre issues isoladas.
+
+**Trade-off:** Achei um bug de ambiente (não de código) no processo: a primeira tentativa do fluxo Playwright deu timeout no login porque o Turbopack compila rotas sob demanda no primeiro acesso, e o clique no botão aconteceu antes da rota `/vagas` terminar de compilar+navegar dentro do timeout padrão. Confirmado como artefato de dev server (não reproduz em build de produção, onde tudo já vem compilado) rodando a mesma rotina de novo com as rotas já "aquecidas" — funcionou de primeira. Documentando para não reinvestigar: se um teste Playwright der timeout de navegação na primeira execução contra `next dev`, tentar de novo antes de assumir bug de aplicação.
