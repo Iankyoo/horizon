@@ -14,3 +14,8 @@ spring:
 
 jwt:
   expiration: ${JWT_EXPIRATION:86400000}
+
+app:
+  # Frontend roda sempre no host (nunca containerizado na v1), então o
+  # default vale tanto no profile local quanto no docker.
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
