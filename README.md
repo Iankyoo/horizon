@@ -1,18 +1,81 @@
 # Horizon
 
+[![Java](https://img.shields.io/badge/Java-21-b07219?logo=openjdk&logoColor=white)](backend/pom.xml)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.16-6DB33F?logo=springboot&logoColor=white)](backend/pom.xml)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2-000000?logo=nextdotjs&logoColor=white)](frontend/package.json)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](frontend/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](frontend/package.json)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](docker-compose.yml)
+[![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+
 Rastreador de candidaturas a vagas dev, com histórico de status por vaga e um dashboard de métricas sobre o funil de candidatura (aplicado → triagem → entrevista → oferta/rejeitado).
 
 Projeto de portfólio (Java/Spring Boot + Next.js) que também serve como ferramenta pessoal para o processo real de busca de vaga.
 
-## Documentação
+## Índice
 
-- [PRD](docs/prd.md) — visão de produto, escopo da v1, modelo de domínio, métricas.
-- [Arquitetura](docs/arquitetura.md) — decisões técnicas, contrato da API, estrutura de pastas.
+- [Funcionalidades](#funcionalidades)
+- [Screenshots](#screenshots)
+- [Stack](#stack)
+- [Como rodar (backend)](#como-rodar-backend)
+- [Como rodar (frontend)](#como-rodar-frontend)
+- [Páginas](#páginas)
+- [Documentação](#documentação)
+- [Status](#status)
+
+## Funcionalidades
+
+- CRUD completo de vaga (criar, listar com filtros, ver detalhe, arquivar).
+- Histórico de status como tabela de eventos (não um campo mutável) — cada mudança de status vira um registro com timestamp e observação opcional.
+- Mudança de status livre, sem máquina de estado — reflete o funil real, onde uma vaga pode voltar de "Entrevista" para "Triagem" ou ir de qualquer status direto para "Rejeitado".
+- Dashboard com 5 métricas: total de vagas, distribuição por status, taxa de conversão entre etapas, tempo médio por etapa e top plataformas — todas calculadas a partir do histórico real, não de contadores redundantes.
+- Autenticação JWT com usuário único (uso pessoal, sem necessidade de multi-usuário na v1).
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%">
+
+**Login**
+
+![Tela de login](docs/screenshots/login.png)
+
+</td>
+<td width="50%">
+
+**Nova candidatura**
+
+![Formulário de nova vaga](docs/screenshots/vagas-form.png)
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+**Listagem de vagas**
+
+![Listagem de vagas com filtros](docs/screenshots/vagas.png)
+
+</td>
+<td width="50%">
+
+**Detalhe + histórico de status**
+
+![Detalhe de vaga com histórico](docs/screenshots/vaga-detalhe.png)
+
+</td>
+</tr>
+</table>
+
+**Dashboard**
+
+![Dashboard com as 5 métricas do funil](docs/screenshots/dashboard.png)
 
 ## Stack
 
-- **Backend:** Java + Spring Boot (Spring Security/JWT, JPA/Hibernate, PostgreSQL).
-- **Frontend:** Next.js + Tailwind.
+- **Backend:** Java 21 + Spring Boot (Spring Security/JWT, JPA/Hibernate, PostgreSQL, springdoc-openapi/Swagger UI).
+- **Frontend:** Next.js (App Router) + TypeScript + Tailwind CSS v4.
 - **Gráficos:** Chart.js.
 - **Infra:** Docker Compose (API + PostgreSQL).
 
@@ -76,13 +139,11 @@ Abre em `http://localhost:3000` — redireciona para `/login` sem token válido.
 - `/vagas/[id]` — detalhe, histórico completo e mudança de status.
 - `/dashboard` — as 5 métricas do funil (seção 6 do PRD) com gráficos Chart.js.
 
-## Ordem de execução
+## Documentação
 
-1. Modelagem + backend completo (entidades, endpoints — status sem máquina de estado, ver decisão da issue #6 em [decisions.md](decisions.md)).
-2. Validação manual dos endpoints via Swagger UI.
-3. Frontend Next.js consumindo a API já estável.
-
-Ver [docs/arquitetura.md](docs/arquitetura.md) e [decisions.md](decisions.md) para detalhes e o histórico completo de decisões (ação/motivo/trade-off).
+- [PRD](docs/prd.md) — visão de produto, escopo da v1, modelo de domínio, métricas.
+- [Arquitetura](docs/arquitetura.md) — decisões técnicas, contrato da API, estrutura de pastas.
+- [decisions.md](decisions.md) — histórico completo de decisões técnicas (ação/motivo/trade-off), issue por issue.
 
 ## Status
 
