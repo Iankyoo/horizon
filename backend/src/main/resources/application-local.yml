@@ -10,3 +10,8 @@ spring:
 jwt:
   # Secret de desenvolvimento apenas — nunca usar em produção. Sobrescreva com JWT_SECRET.
   secret: ${JWT_SECRET:oikhdNjholSZeVn42IEzYSIJM+Q9HxMkQ52pmpYqjqw=}
+
+admin:
+  username: ${ADMIN_USERNAME:admin}
+  # Hash de "admin123" — apenas para dev local. Sobrescreva com ADMIN_PASSWORD_HASH.
+  password-hash: ${ADMIN_PASSWORD_HASH:$2a$10$F1e1s9I9c/vK2HzWRI9ewe4XLMw9rFTG.GUOrhoXDx4RiSXyJdHky}
