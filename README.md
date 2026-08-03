@@ -52,6 +52,10 @@ curl -X POST http://localhost:8081/api/v1/auth/login \
 
 Retorna `{"token": "..."}` — envie em `Authorization: Bearer <token>` nas chamadas a `/api/v1/vagas/**` e `/api/v1/dashboard/**`.
 
+### Swagger UI
+
+Com a API rodando: `http://localhost:8081/swagger-ui/index.html` (`/v3/api-docs` para o JSON do OpenAPI). Use o botão **Authorize** para colar o token do login e testar os endpoints protegidos direto pela UI.
+
 ## Ordem de execução
 
 1. Modelagem + backend completo (entidades, endpoints, regras de transição de status).
