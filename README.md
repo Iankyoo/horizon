@@ -40,7 +40,7 @@ CP="$(find ~/.m2 -iname 'spring-security-crypto-*.jar' ! -iname '*sources*' | he
 echo 'System.out.println(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("SUA_SENHA"))' | jshell --class-path "$CP" -q -
 ```
 
-Cole o resultado (começa com `$2a$10$...`) em `ADMIN_PASSWORD_HASH` no `.env`.
+Cole o resultado (começa com `$2a$10$...`) em `ADMIN_PASSWORD_HASH` no `.env` — **escapando todo `$` como `$$`** (ex: `$2a$10$abc...` vira `$$2a$$10$$abc...`). O `docker compose` interpola `$` no `.env` como variável; sem escapar, o hash chega corrompido no container e o login falha silenciosamente com credenciais "erradas".
 
 ### Login
 
