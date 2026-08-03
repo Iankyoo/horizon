@@ -7,6 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](frontend/package.json)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](docker-compose.yml)
 [![Docker Compose](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![JUnit 5](https://img.shields.io/badge/JUnit-5-25A162?logo=junit5&logoColor=white)](backend/src/test)
 
 Rastreador de candidaturas a vagas dev, com histórico de status por vaga e um dashboard de métricas sobre o funil de candidatura (aplicado → triagem → entrevista → oferta/rejeitado).
 
@@ -118,6 +119,15 @@ Retorna `{"token": "..."}` — envie em `Authorization: Bearer <token>` nas cham
 ### Swagger UI
 
 Com a API rodando: `http://localhost:8081/swagger-ui/index.html` (`/v3/api-docs` para o JSON do OpenAPI). Use o botão **Authorize** para colar o token do login e testar os endpoints protegidos direto pela UI.
+
+### Testes
+
+```bash
+cd backend
+./mvnw test
+```
+
+Testes unitários (JUnit 5 + Mockito, sem Spring context nem banco) para `VagaService`, `DashboardService`, `AuthService`, `JwtService` e `GlobalExceptionHandler` — a lógica de negócio e cálculo das métricas do dashboard.
 
 ## Como rodar (frontend)
 
