@@ -359,3 +359,31 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** JWT stateless não tem "sessão" no servidor para invalidar — logout de verdade exigiria uma blacklist (Redis ou tabela), infraestrutura que nenhum dos dois documentos pede. `jwt.expiration` (24h, herdado do `rest-api`) já limita a janela de um token vazado.
 
 **Trade-off:** Um token vazado continua válido até expirar, sem forma de revogá-lo antes da hora — risco aceito dado o contexto (uso pessoal, token nunca sai da máquina do próprio usuário). Se isso importar no futuro, é uma feature nova (blacklist), não um ajuste desta issue.
+
+---
+
+## Issue #10 — Validação manual via Swagger UI (gate antes do frontend)
+
+## 2026-08-03 — `OpenApiConfig` no pacote `security`, não um pacote `config` novo
+
+**Ação:** `OpenApiConfig.java` (título/descrição da API + esquema `bearerAuth` para o botão Authorize) foi colocado em `com.iankyoo.horizon.security`, não em um pacote `config` separado.
+
+**Motivo:** A estrutura de pastas fechada na arquitetura (seção 3) não prevê um pacote `config` — só `security` entre os candidatos razoáveis. O conteúdo do bean é quase todo sobre declarar o esquema de autenticação Bearer JWT do Swagger, o que é diretamente acoplado ao que já existe em `security` (`JwtService`, `SecurityConfig`), então reaproveitar o pacote existente evitou inventar uma pasta nova para uma única classe.
+
+**Trade-off:** Se o projeto crescer com mais configuração não-relacionada a segurança (ex: config de CORS, de cache), pode valer revisitar e criar um pacote `config` de verdade — não fiz isso agora para não adiantar estrutura que nenhuma issue pede ainda.
+
+## 2026-08-03 — Nenhuma mudança no `SecurityConfig` para liberar o Swagger UI
+
+**Ação:** `/swagger-ui/**` e `/v3/api-docs/**` funcionam sem token, sem precisar tocar em `SecurityConfig`.
+
+**Motivo:** Decisão já tomada (e documentada) na issue #9: o `SecurityFilterChain` protege só `/api/v1/vagas/**` e `/api/v1/dashboard/**`, com `anyRequest().permitAll()` como fallback — exatamente pensando nesta issue. Confirmado na prática: `curl http://localhost:8081/v3/api-docs` e `/swagger-ui/index.html` responderam `200` sem `Authorization` header.
+
+**Trade-off:** Nenhum novo — é a decisão da #9 se pagando aqui.
+
+## 2026-08-03 — Checklist de aceite validado via `curl` roteirizado, não clicando manualmente na UI
+
+**Ação:** A validação "manual" do PRD (seção 8) foi executada como um script `curl` sequencial cobrindo o fluxo completo: login → criar vaga → listar (sem filtro e com filtro) → detalhe (1 evento de histórico) → mudar status duas vezes → detalhe de novo (3 eventos, `statusAtual` correto) → arquivar → listar (some) → dashboard (continua contando). Todos os passos confirmados com o resultado esperado.
+
+**Motivo:** Não há uma ferramenta de automação de navegador disponível neste ambiente para clicar de fato nos botões do Swagger UI. O objetivo real da issue — confirmado em `docs/prd.md` seção 8 como critério de sucesso ("CRUD de vaga funcionando ponta a ponta, com histórico de status persistido") — é sobre o **comportamento da API**, não sobre o ato de clicar na interface do Swagger especificamente. `curl` contra os mesmos endpoints documentados no Swagger exercita exatamente o mesmo contrato HTTP. A parte que só a UI do Swagger cobre (o parser do OpenAPI conseguindo gerar a página, os schemas renderizando, o botão Authorize funcionando) foi validada separadamente confirmando que `/v3/api-docs` retorna um documento OpenAPI válido listando os 7 endpoints esperados e que `/swagger-ui/index.html` carrega com `200`.
+
+**Trade-off:** Não fica validado visualmente se a UI do Swagger renderiza cada schema/formulário de forma legível (só que ela carrega e o JSON do OpenAPI é válido) — um problema puramente cosmético de renderização do Swagger UI poderia passar despercebido. Baixo risco: `springdoc-openapi-starter-webmvc-ui` é a biblioteca padrão de mercado, gera schemas automaticamente a partir dos DTOs/`record`s já existentes, sem nenhuma customização manual de schema que pudesse quebrar.
