@@ -56,14 +56,36 @@ Retorna `{"token": "..."}` — envie em `Authorization: Bearer <token>` nas cham
 
 Com a API rodando: `http://localhost:8081/swagger-ui/index.html` (`/v3/api-docs` para o JSON do OpenAPI). Use o botão **Authorize** para colar o token do login e testar os endpoints protegidos direto pela UI.
 
+## Como rodar (frontend)
+
+Com a API já rodando (via `docker compose` ou `mvnw`, acima):
+
+```bash
+cd frontend
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL, default http://localhost:8081
+npm install
+npm run dev
+```
+
+Abre em `http://localhost:3000` — redireciona para `/login` sem token válido. Detalhes da estrutura em [frontend/README.md](frontend/README.md).
+
+## Páginas
+
+- `/login` — autenticação (usuário único).
+- `/vagas` — listagem com filtros por status/plataforma + criação de candidatura.
+- `/vagas/[id]` — detalhe, histórico completo e mudança de status.
+- `/dashboard` — as 5 métricas do funil (seção 6 do PRD) com gráficos Chart.js.
+
 ## Ordem de execução
 
-1. Modelagem + backend completo (entidades, endpoints, regras de transição de status).
+1. Modelagem + backend completo (entidades, endpoints — status sem máquina de estado, ver decisão da issue #6 em [decisions.md](decisions.md)).
 2. Validação manual dos endpoints via Swagger UI.
 3. Frontend Next.js consumindo a API já estável.
 
-Ver [docs/arquitetura.md](docs/arquitetura.md) para detalhes.
+Ver [docs/arquitetura.md](docs/arquitetura.md) e [decisions.md](decisions.md) para detalhes e o histórico completo de decisões (ação/motivo/trade-off).
 
 ## Status
 
-Em desenvolvimento — v1 (MVP) ainda não iniciada. Acompanhe o progresso nas [issues](../../issues).
+v1 (MVP) completa — CRUD de vaga ponta a ponta com histórico de status, dashboard com as 5 métricas do PRD, autenticação JWT, frontend Next.js. Acompanhe o histórico nas [issues fechadas](../../issues?q=is%3Aissue+is%3Aclosed).
+
+Fora de escopo por decisão deliberada (v2+): parsing automático de vaga, integração com e-mail, lembretes automáticos, multi-usuário — ver seção 3 do [PRD](docs/prd.md).
