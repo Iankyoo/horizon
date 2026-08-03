@@ -431,3 +431,31 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Essa regra do ESLint (nova no `eslint-config-next` para Next 16/React 19) é uma heurística útil no caso geral, mas os dois casos aqui são exatamente o cenário em que `useEffect` + `setState` é o padrão correto e recomendado pelo próprio React: ler uma API só-de-browser (`localStorage`) que não existe no SSR. Ler direto no corpo do componente (inicializador `useState(() => getToken())`) pareceria mais "limpo" para o linter, mas causaria divergência de hidratação real (servidor renderiza deslogado, cliente hidrata com valor diferente) — pior que o aviso do linter. `useSyncExternalStore` resolveria sem o aviso, mas é exatamente o tipo de "padrão avançado" que a arquitetura pede pra evitar nesta fase do frontend.
 
 **Trade-off:** Duas supressões de lint no código — aceitável porque cada uma tem uma linha de comentário explicando o motivo, então não fica "silenciada sem explicação" para quem ler depois.
+
+---
+
+## Issue #13 — Página `/vagas/[id]` (detalhe + histórico + mudança de status)
+
+## 2026-08-03 — `useParams()` em vez de `use(params)`/`params: Promise<...>`
+
+**Ação:** `app/vagas/[id]/page.tsx` lê o `id` da rota via `useParams<{ id: string }>()` do `next/navigation`, não recebendo `params` como prop assíncrona.
+
+**Motivo:** Conferido em `node_modules/next/dist/docs/01-app/.../dynamic-routes.md` (aviso do `AGENTS.md` do frontend: essa versão do Next tem breaking changes vs. o treino do modelo) — em Client Components, `params` como prop é uma `Promise` e precisa de `use()`; a alternativa documentada para Client Components é exatamente `useParams()`, mais simples e sem precisar tornar o componente compatível com `Suspense`/streaming. Como a página já é `"use client"` (precisa de `useState`/formulário interativo para mudar status), `useParams()` evita complexidade extra sem trade-off real.
+
+**Trade-off:** Nenhum — é a forma recomendada pela própria doc para o caso de Client Component.
+
+## 2026-08-03 — Formulário de mudança de status é uma ação separada da vaga, não edição inline da tabela
+
+**Ação:** A mudança de status vive só na página de detalhe (`select` com todos os 5 status + campo de observação opcional), disparando `PATCH /api/v1/vagas/{id}/status` e re-buscando o detalhe completo (`GET /api/v1/vagas/{id}`) para atualizar histórico e status atual na mesma resposta.
+
+**Motivo:** O backend não valida transição de estado (decisão já tomada na issue #7 — status livre, sem máquina de estado), então a UI segue o mesmo princípio: qualquer status pode ser escolhido a qualquer momento, sem lista de "próximos status válidos" calculada no frontend. Re-buscar o detalhe inteiro após o PATCH (em vez de só atualizar o `statusAtual` no estado local a partir da resposta do `PATCH`, que é um `VagaResponse` sem histórico) garante que o novo evento do histórico apareça sem lógica duplicada de merge no cliente.
+
+**Trade-off:** Uma requisição HTTP a mais por mudança de status (`PATCH` + `GET`) em vez de só atualizar o estado local — aceitável dado o volume de uso (ferramenta pessoal, não alto tráfego) e evita manter duas fontes de verdade (resposta do PATCH vs. GET) sincronizadas manualmente.
+
+## 2026-08-03 — Sem botão de excluir na página de detalhe
+
+**Ação:** A página de detalhe não expõe `DELETE /api/v1/vagas/{id}` (arquivar), mesmo o endpoint já existindo desde a issue #8.
+
+**Motivo:** Fora do escopo declarado da issue #13 (`docs/prd.md` seção 5 item 2: "detalhe + histórico + mudança de status"). Adicionar mais uma ação não pedida infla a página sem necessidade real agora.
+
+**Trade-off:** Se o usuário quiser arquivar uma vaga pela UI, precisa esperar uma issue futura (não coberta nas #11-#15 originais) ou usar a API diretamente — aceitável porque nenhuma das 15 issues do MVP pede essa ação na UI.
