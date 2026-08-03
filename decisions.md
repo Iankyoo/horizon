@@ -387,3 +387,47 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Não há uma ferramenta de automação de navegador disponível neste ambiente para clicar de fato nos botões do Swagger UI. O objetivo real da issue — confirmado em `docs/prd.md` seção 8 como critério de sucesso ("CRUD de vaga funcionando ponta a ponta, com histórico de status persistido") — é sobre o **comportamento da API**, não sobre o ato de clicar na interface do Swagger especificamente. `curl` contra os mesmos endpoints documentados no Swagger exercita exatamente o mesmo contrato HTTP. A parte que só a UI do Swagger cobre (o parser do OpenAPI conseguindo gerar a página, os schemas renderizando, o botão Authorize funcionando) foi validada separadamente confirmando que `/v3/api-docs` retorna um documento OpenAPI válido listando os 7 endpoints esperados e que `/swagger-ui/index.html` carrega com `200`.
 
 **Trade-off:** Não fica validado visualmente se a UI do Swagger renderiza cada schema/formulário de forma legível (só que ela carrega e o JSON do OpenAPI é válido) — um problema puramente cosmético de renderização do Swagger UI poderia passar despercebido. Baixo risco: `springdoc-openapi-starter-webmvc-ui` é a biblioteca padrão de mercado, gera schemas automaticamente a partir dos DTOs/`record`s já existentes, sem nenhuma customização manual de schema que pudesse quebrar.
+
+---
+
+## Issue #11/#12 — Setup do frontend + página /vagas (com sistema de design deliberado)
+
+## 2026-08-03 — Sistema de design próprio ("faixa-horizonte") em vez de UI genérica de dashboard
+
+**Ação:** Antes de codar, defini uma direção de design específica para o Horizon: paleta fria "papel de razão" (não o cream+serif+terracota nem o near-black+neon que são os defaults genéricos de UI gerada por IA), tipografia Fraunces (display) + IBM Plex Sans (corpo) + IBM Plex Mono (dados), e um elemento-assinatura — uma faixa em gradiente (`dawn → twilight → amber → gold`) onde a posição de cada estágio no gradiente É a distribuição por status (a mesma métrica que o dashboard, issue #14, vai mostrar formalmente). REJEITADO fica deliberadamente fora do gradiente, em `slate`, reforçando "saiu do funil".
+
+**Motivo:** O nome do projeto ("Horizon") e o domínio (funil `aplicado→triagem→entrevista→oferta/rejeitado`) davam um motivo real e específico para esse motivo visual — não é decoração genérica, é a distribuição por status virando visualização funcional, reaproveitada como header persistente em todo o app. Também é a única página onde "gastei" a ousadia visual (o resto — tabela, formulário, login — fica deliberadamente quieto/utilitário).
+
+**Trade-off:** Mais tempo investido em decisão de design do que uma UI com componentes prontos (ex: shadcn/ui) exigiria — aceitável porque o projeto é peça de portfólio, não só ferramenta interna, e o usuário pediu explicitamente uma direção de design intencional (skill `frontend-design`) em vez do resultado padrão.
+
+## 2026-08-03 — Tela de login e CORS: dois gaps reais que nenhuma issue original cobria
+
+**Ação:** Adicionei `app/login/page.tsx` no frontend e `CorsConfigurationSource` no backend (`SecurityConfig`, commit `7b08d5c`), nenhum dos dois pedido explicitamente por issue nenhuma.
+
+**Motivo:** Descobertos por necessidade, não por escolha — sem login, nenhuma chamada a `/api/v1/vagas`/`/dashboard` teria token (a API é JWT desde a issue #9); sem CORS, o navegador bloqueava toda chamada de `localhost:3000` para `localhost:8081` mesmo com token (erro de preflight sem `Access-Control-Allow-Origin`, descoberto rodando o fluxo de login de verdade via Playwright — a tela carregava, mas o `fetch` falhava silenciosamente do lado do usuário). Ambos bloqueadores totais: sem eles, zero funcionalidade do frontend funciona.
+
+**Trade-off:** Nenhum — eram pré-requisitos, não features novas. Documentando aqui porque é o tipo de gap que só aparece quando se integra de ponta a ponta, não lendo os docs isoladamente — reforça o valor de validar com o app rodando de verdade (como fiz em todas as issues do backend) em vez de só revisar código.
+
+## 2026-08-03 — Sem tabela `User`; sem gerenciamento de estado global (Redux/Zustand); fetch client-side simples
+
+**Ação:** `lib/api.ts` é só funções `fetch` centralizadas (uma por endpoint, como o doc de arquitetura pede) com token em `localStorage`; sem React Query/SWR, sem Context de auth, sem middleware do Next.
+
+**Motivo:** `docs/arquitetura.md` seção 7 pede explicitamente exatamente isso: "usar fetch simples client-side... evitar padrões avançados de Next... reduzir a quantidade de conceitos novos de frontend de uma vez" — o nível de frontend do usuário ainda é básico. A ambição de design (cores/tipografia/layout) não conflita com engenharia simples (fetch + useState/useEffect) — são eixos independentes.
+
+**Trade-off:** Cada página refaz sua própria lógica de loading/erro em vez de um hook compartilhado (`useVagas`, etc.) — repetição pequena e aceitável no tamanho atual do app; se crescer, extrair hooks é um refactor isolado, não uma mudança de arquitetura.
+
+## 2026-08-03 — Validação visual com Playwright avulso (não `chromium-cli`), instalado só no scratchpad
+
+**Ação:** Como `chromium-cli` não está disponível neste ambiente, usei `playwright` via `npx` instalado num projeto descartável no diretório de scratchpad (não como dependência do `frontend/`) para dirigir um Chromium headless: screenshot do login, login de verdade (preenche+submete), screenshot de `/vagas` com dados reais, criação de vaga pela UI (não só via `curl`), conferindo consumo real da API pelo browser.
+
+**Motivo:** É a única forma de "ver" o resultado visual real (cores, fontes, layout renderizado) neste ambiente sem GUI. Rodar só `curl`/testes de tipo não prova que o design funciona; rodar com browser real pegou dois bugs reais que análise estática não pegaria: o CORS (acima) e um gradiente incompleto (Tailwind `from/via/to` só suporta 3 stops; o conceito da faixa-horizonte precisa de 4 — corrigido com `linear-gradient` arbitrário via `var(--color-*)`).
+
+**Trade-off:** Instalar Playwright + baixar o binário do Chromium tem custo (tempo, ~300MB) só para validação, não faz parte do app — por isso fica isolado no scratchpad, nunca vira dependência do projeto. Um artefato visual (fringing de antialiasing subpixel do Chromium headless) inicialmente pareceu um bug de CSS real; precisei validar com `--disable-lcd-text` e DPI maior para confirmar que era só um artefato de captura, não o app — documentando para não reinvestigar da próxima vez.
+
+## 2026-08-03 — `react-hooks/set-state-in-effect` suprimido em dois pontos específicos, com comentário
+
+**Ação:** `Header.tsx` (checar token no `localStorage` pós-montagem) e `app/vagas/page.tsx` (disparar o fetch inicial autenticado) têm `// eslint-disable-next-line react-hooks/set-state-in-effect` com justificativa inline, em vez de reestruturar para `useSyncExternalStore` ou mover a leitura para o corpo do componente.
+
+**Motivo:** Essa regra do ESLint (nova no `eslint-config-next` para Next 16/React 19) é uma heurística útil no caso geral, mas os dois casos aqui são exatamente o cenário em que `useEffect` + `setState` é o padrão correto e recomendado pelo próprio React: ler uma API só-de-browser (`localStorage`) que não existe no SSR. Ler direto no corpo do componente (inicializador `useState(() => getToken())`) pareceria mais "limpo" para o linter, mas causaria divergência de hidratação real (servidor renderiza deslogado, cliente hidrata com valor diferente) — pior que o aviso do linter. `useSyncExternalStore` resolveria sem o aviso, mas é exatamente o tipo de "padrão avançado" que a arquitetura pede pra evitar nesta fase do frontend.
+
+**Trade-off:** Duas supressões de lint no código — aceitável porque cada uma tem uma linha de comentário explicando o motivo, então não fica "silenciada sem explicação" para quem ler depois.
