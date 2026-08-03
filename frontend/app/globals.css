@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  /* Superfícies — papel de razão frio, não o creme padrão */
+  --color-paper: #eef1f6;
+  --color-surface: #ffffff;
+
+  /* Texto */
+  --color-ink: #14181f;
+  --color-ink-soft: #4b5563;
+  --color-ink-faint: #8b93a1;
+
+  /* Linha do horizonte — posição no gradiente = estágio do funil */
+  --color-dawn: #2e2a6b;
+  --color-twilight: #6b4a8f;
+  --color-amber: #c97a3d;
+  --color-gold: #e8b23d;
+
+  /* Fora do horizonte — rejeitada/arquivada */
+  --color-slate: #64748b;
+
+  --color-line: #d7dce4;
+
+  --font-display: var(--font-fraunces), ui-serif, serif;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
