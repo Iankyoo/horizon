@@ -315,3 +315,47 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** "Top" já sugere um recorte, e 5 é um tamanho comum de gráfico de barras/ranking em dashboards. Aplicar o limite na query evita trazer plataformas irrelevantes (com 1 candidatura cada) do banco à toa.
 
 **Trade-off:** Nenhum documento fixa o número 5 — é uma escolha de UX razoável, documentada aqui para não parecer arbitrária depois. Fácil de ajustar (é uma constante no `DashboardService`) se o usuário preferir outro valor ao usar o dashboard de verdade.
+
+---
+
+## Issue #9 — Autenticação (Spring Security + JWT)
+
+## 2026-08-02 — Usuário único hardcoded via env var (`ADMIN_USERNAME`/`ADMIN_PASSWORD_HASH`), sem entidade `User`/tabela
+
+**Ação:** Não existe `User` entity, `UserRepository` nem endpoint de registro. As credenciais do único usuário vêm de `admin.username`/`admin.password-hash`, resolvidos via `@Value` a partir de variáveis de ambiente.
+
+**Motivo:** A arquitetura (seção 6) é explícita: "Login único, sem cadastro público de usuários na v1". Diferente do `rest-api` (multi-usuário, com `User`/`Role`/registro), o Horizon não tem — e nunca vai ter na v1 — mais de um usuário. Modelar uma tabela `users` para guardar exatamente uma linha, que nunca é criada por um endpoint público, seria complexidade sem função: não há CRUD de usuário para justificar persistência.
+
+**Trade-off:** Trocar a senha exige gerar um novo hash e reiniciar a aplicação com uma nova env var — não tem "esqueci minha senha" nem troca em runtime. Aceitável para uso pessoal single-user; se um dia precisar de multi-usuário (fora do escopo declarado da v1), essa decisão inteira é revisitada, não só ajustada.
+
+## 2026-08-02 — Hash BCrypt em vez de senha em texto puro na env var, mesmo sendo local/pessoal
+
+**Ação:** `ADMIN_PASSWORD_HASH` guarda um hash BCrypt (`passwordEncoder.matches(raw, hash)`), não a senha puro.
+
+**Motivo:** A arquitetura justifica JWT aqui "mesmo sendo uso pessoal/single-user" para "manter consistência de portfólio" — o mesmo raciocínio vale para usar `BCryptPasswordEncoder` como no `rest-api`, em vez de comparar string direto. É o padrão que qualquer revisor de portfólio espera ver, e o custo extra (gerar o hash uma vez) é mínimo.
+
+**Trade-off:** Fica mais chato gerar/trocar a senha (precisa rodar um comando pra gerar o hash) do que só editar uma env var em texto puro — documentei o passo a passo completo no README (via `jshell` + jars já baixados pelo Maven, sem depender de ferramenta externa nova).
+
+## 2026-08-02 — Bug real encontrado na validação: `$` do hash BCrypt sendo corrompido pelo `docker compose` no `.env`
+
+**Ação:** Documentado no `.env.example` e no README que todo `$` do hash precisa virar `$$` no arquivo `.env`.
+
+**Motivo:** `docker compose` interpola `$VAR`/`${VAR}` dentro do `.env` do mesmo jeito que interpola dentro do `docker-compose.yml` — um hash como `$2a$10$y/iF9...` tem `$2a`, `$10` e `$y` tratados como referências de variável. `$y` (variável inexistente) virou string vazia silenciosamente, corrompendo o hash sem erro nenhum — o login simplesmente passou a falhar com "credenciais inválidas" mesmo com a senha certa. Só percebi porque vi o warning `The "y" variable is not set` no `docker compose ps` e fui investigar; sem prestar atenção nesse warning, o bug teria sido bem mais difícil de diagnosticar (parece erro de senha, não de parsing de arquivo).
+
+**Trade-off:** Nenhum — é puramente documentação de uma armadilha real do Docker Compose para não repetir o mesmo debug depois. Validado end-to-end depois da correção: `POST /api/v1/auth/login` com a senha certa retornou o token, e o mesmo token autenticou `GET`/`POST` em `/api/v1/vagas` e `GET /api/v1/dashboard/metrics`.
+
+## 2026-08-02 — `SecurityFilterChain` protege só `/api/v1/vagas/**` e `/api/v1/dashboard/**`; todo o resto é `permitAll`
+
+**Ação:** `.requestMatchers("/api/v1/vagas/**", "/api/v1/dashboard/**").authenticated()` seguido de `.anyRequest().permitAll()` — não um `anyRequest().authenticated()` com exceções.
+
+**Motivo:** É literalmente o escopo da issue ("Proteger os endpoints de `/api/v1/vagas/**` e `/api/v1/dashboard/**`"). Deixar tudo mais permissivo por padrão evita que a issue #10 (Swagger UI) precise editar o `SecurityConfig` de novo só para liberar `/swagger-ui/**`/`/v3/api-docs/**` — esses paths já vão funcionar sem token assim que existirem.
+
+**Trade-off:** Qualquer endpoint novo fora de `vagas`/`dashboard` nasce público por padrão, a menos que alguém lembre de adicionar ao `SecurityConfig` — risco baixo aqui porque o único outro grupo de rotas é `/api/v1/auth/**` (que precisa mesmo ser público) e o futuro Swagger (também deve ser público). Se o projeto crescer com mais recursos protegidos, vale reconsiderar para deny-by-default.
+
+## 2026-08-02 — Sem endpoint de logout/refresh
+
+**Ação:** Só existe `POST /api/v1/auth/login`. Não há blacklist de token, refresh token, nem logout no servidor.
+
+**Motivo:** JWT stateless não tem "sessão" no servidor para invalidar — logout de verdade exigiria uma blacklist (Redis ou tabela), infraestrutura que nenhum dos dois documentos pede. `jwt.expiration` (24h, herdado do `rest-api`) já limita a janela de um token vazado.
+
+**Trade-off:** Um token vazado continua válido até expirar, sem forma de revogá-lo antes da hora — risco aceito dado o contexto (uso pessoal, token nunca sai da máquina do próprio usuário). Se isso importar no futuro, é uma feature nova (blacklist), não um ajuste desta issue.
