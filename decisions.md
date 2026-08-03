@@ -515,3 +515,23 @@ Registro cronológico de decisões tomadas durante o desenvolvimento, com ação
 **Motivo:** Reaproveitar só os testes já feitos nas issues #12-#14 verificaria cada peça isoladamente, mas não garante que elas continuam funcionando *juntas* depois de mudanças subsequentes (ex: dependências novas do Chart.js, edições no `lib/status.ts`). Rodar tudo de novo do zero, numa sessão só, é o que realmente valida "v1 pronta para publicar" — que é sobre o sistema como um todo, não sobre issues isoladas.
 
 **Trade-off:** Achei um bug de ambiente (não de código) no processo: a primeira tentativa do fluxo Playwright deu timeout no login porque o Turbopack compila rotas sob demanda no primeiro acesso, e o clique no botão aconteceu antes da rota `/vagas` terminar de compilar+navegar dentro do timeout padrão. Confirmado como artefato de dev server (não reproduz em build de produção, onde tudo já vem compilado) rodando a mesma rotina de novo com as rotas já "aquecidas" — funcionou de primeira. Documentando para não reinvestigar: se um teste Playwright der timeout de navegação na primeira execução contra `next dev`, tentar de novo antes de assumir bug de aplicação.
+
+---
+
+## Pós-v1 — README com screenshots
+
+## 2026-08-03 — Screenshots do README capturados contra `next build && next start`, não `next dev`
+
+**Ação:** As 5 capturas em `docs/screenshots/` foram geradas com Playwright rodando contra o build de produção do frontend, não o servidor de desenvolvimento.
+
+**Motivo:** Uma primeira tentativa contra `next dev` (Turbopack) capturou o indicador de devtools do Next ("N" + badge de "1 Issue") no canto da tela, e uma segunda tentativa na sequência mostrou a tabela de vagas momentaneamente sem estilo Tailwind (texto azul sublinhado, como link não estilizado) — os dois artefatos de Fast Refresh/HMR recompilando em paralelo à navegação do Playwright, não bugs reais do app (confirmado: o build de produção, sem HMR, renderizou de forma estável e sem o indicador em todas as tentativas). Para documentação pública (README), a imagem precisa ser determinística — não vale a pena investigar/mitigar instabilidade do dev server quando `next build` já resolve isso de graça.
+
+**Trade-off:** Um passo a mais (build) antes de gerar screenshots — irrelevante para o fluxo de desenvolvimento normal (`npm run dev` continua sendo o comando do dia a dia, só as capturas para documentação usam build).
+
+## 2026-08-03 — Badges do README limitados a stack técnica (sem CI/licença)
+
+**Ação:** Os badges no topo do `README.md` cobrem só versões de tecnologia (Java, Spring Boot, Next.js, React, TypeScript, PostgreSQL, Docker Compose), lidas diretamente do `pom.xml`/`package.json`/`docker-compose.yml`.
+
+**Motivo:** Um badge é uma afirmação verificável — não faz sentido mostrar um badge de build/CI (não existe pipeline, decisão explícita da v1 documentada em `docs/arquitetura.md` seção 9: "Sem CI/CD na v1") nem de licença (não existe arquivo `LICENSE` no repo). Badges que prometem algo que não existe são pior que não ter badge nenhum.
+
+**Trade-off:** Nenhum — se um `LICENSE` ou CI forem adicionados no futuro, é só adicionar o badge correspondente.
